@@ -859,6 +859,7 @@ struct tcp_skb_cb {
 			__u32 flags;
 			struct sock *sk_redir;
 			void *data_end;
+			struct bpf_map *map;
 		} bpf;
 	};
 };

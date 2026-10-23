@@ -254,7 +254,7 @@ static int compute_effective_progs(struct cgroup *cgrp,
 				if (!pl->prog)
 					continue;
 				rcu_dereference_protected(progs, 1)->
-					progs[cnt++] = pl->prog;
+					items[cnt++].prog = pl->prog;
 			}
 		p = cgroup_parent(p);
 	} while (p);

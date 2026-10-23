@@ -480,6 +480,9 @@ struct bpf_stack_build_id {
 
 #define BPF_OBJ_NAME_LEN 16U
 
+/* Flags for accessing BPF object from program side. */
+#define BPF_F_RDONLY_PROG	(1U << 7)
+
 union bpf_attr {
 	struct { /* anonymous struct used by BPF_MAP_CREATE command */
 		__u32	map_type;	/* one of enum bpf_map_type */
@@ -541,6 +544,22 @@ union bpf_attr {
 		__aligned_u64	log_buf;	/* user supplied buffer */
 		__u32		kern_version;	/* not used */
 		__u32		prog_flags;
+		__u8		prog_name[BPF_OBJ_NAME_LEN];
+		__u32		prog_ifindex;	/* ifindex of netdev to prep for */
+		/* For some prog types expected attach type must be known at
+		 * load time to verify attach type specific parts of prog
+		 * (context accesses, allowed helpers, etc).
+		 */
+		__u32		expected_attach_type;
+		__u32		prog_btf_fd;	/* fd pointing to BTF type data */
+		__u32		func_info_rec_size;	/* userspace bpf_func_info size */
+		__aligned_u64	func_info;	/* func info */
+		__u32		func_info_cnt;	/* number of bpf_func_info records */
+		__u32		line_info_rec_size;	/* userspace bpf_line_info size */
+		__aligned_u64	line_info;	/* line info */
+		__u32		line_info_cnt;	/* number of bpf_line_info records */
+		__u32		attach_btf_id;
+		__u32		attach_prog_fd;
 	};
 
 	struct { /* anonymous struct used by BPF_OBJ_* commands */
@@ -4043,6 +4062,9 @@ enum {
 	BPF_SK_LOOKUP_F_NO_REUSEPORT	= (1ULL << 1),
 };
 
+/* BPF_FUNC_sk_storage_get flags */
+#define BPF_SK_STORAGE_GET_F_CREATE	(1ULL << 0)
+
 /* Mode for BPF_FUNC_skb_adjust_room helper. */
 enum bpf_adj_room_mode {
 	BPF_ADJ_ROOM_NET,
@@ -4359,6 +4381,33 @@ struct bpf_prog_info {
 	__u32 xlated_prog_len;
 	__aligned_u64 jited_prog_insns;
 	__aligned_u64 xlated_prog_insns;
+	__u64 load_time;	/* ns since boottime */
+	__u32 created_by_uid;
+	__u32 nr_map_ids;
+	__aligned_u64 map_ids;
+	char name[BPF_OBJ_NAME_LEN];
+	__u32 ifindex;
+	__u32 gpl_compatible:1;
+	__u64 netns_dev;
+	__u64 netns_ino;
+	__u32 nr_jited_ksyms;
+	__u32 nr_jited_func_lens;
+	__aligned_u64 jited_ksyms;
+	__aligned_u64 jited_func_lens;
+	__u32 btf_id;
+	__u32 func_info_rec_size;
+	__aligned_u64 func_info;
+	__u32 nr_func_info;
+	__u32 nr_line_info;
+	__aligned_u64 line_info;
+	__aligned_u64 jited_line_info;
+	__u32 nr_jited_line_info;
+	__u32 line_info_rec_size;
+	__u32 jited_line_info_rec_size;
+	__u32 nr_prog_tags;
+	__aligned_u64 prog_tags;
+	__u64 run_time_ns;
+	__u64 run_cnt;
 } __attribute__((aligned(8)));
 
 struct bpf_map_info {
@@ -5014,5 +5063,6 @@ enum {
 	BTF_F_PTR_RAW	=	(1ULL << 2),
 	BTF_F_ZERO	=	(1ULL << 3),
 };
+
 
 #endif /* _UAPI__LINUX_BPF_H__ */

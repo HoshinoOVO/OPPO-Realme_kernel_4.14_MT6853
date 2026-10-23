@@ -96,14 +96,6 @@ static inline struct smap_psock *smap_psock_sk(const struct sock *sk)
 	return rcu_dereference_sk_user_data(sk);
 }
 
-/* compute the linear packet data range [data, data_end) for skb when
- * sk_skb type programs are in use.
- */
-static inline void bpf_compute_data_end_sk_skb(struct sk_buff *skb)
-{
-	TCP_SKB_CB(skb)->bpf.data_end = skb->data + skb_headlen(skb);
-}
-
 enum __sk_action {
 	__SK_DROP = 0,
 	__SK_PASS,
@@ -537,10 +529,8 @@ static struct bpf_map *sock_map_alloc(union bpf_attr *attr)
 	if (cost >= U32_MAX - PAGE_SIZE)
 		goto free_stab;
 
-	stab->map.pages = round_up(cost, PAGE_SIZE) >> PAGE_SHIFT;
-
 	/* if map size is larger than memlock limit, reject it early */
-	err = bpf_map_precharge_memlock(stab->map.pages);
+	err = bpf_map_charge_init(&stab->map.memory, cost);
 	if (err)
 		goto free_stab;
 

@@ -136,6 +136,16 @@ static void ops_free(const struct pernet_operations *ops, struct net *net)
 	}
 }
 
+static void ops_pre_exit_list(const struct pernet_operations *ops,
+			      struct list_head *net_exit_list)
+{
+	struct net *net;
+	if (ops->pre_exit) {
+		list_for_each_entry(net, net_exit_list, exit_list)
+			ops->pre_exit(net);
+	}
+}
+
 static void ops_exit_list(const struct pernet_operations *ops,
 			  struct list_head *net_exit_list)
 {
@@ -477,6 +487,12 @@ static void cleanup_net(struct work_struct *work)
 
 	}
 	rtnl_unlock();
+
+	/* Notify subsystems that the netns is going away, so they can
+	 * detach RCU-protected state before the grace period below.
+	 */
+	list_for_each_entry_reverse(ops, &pernet_list, list)
+		ops_pre_exit_list(ops, &net_exit_list);
 
 	/*
 	 * Another CPU might be rcu-iterating the list, wait for it.

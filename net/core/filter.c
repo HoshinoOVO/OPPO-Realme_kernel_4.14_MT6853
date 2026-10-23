@@ -3537,8 +3537,6 @@ static int bpf_skb_adjust_net(struct sk_buff *skb, s32 len_diff)
 	bool shrink = len_diff < 0;
 	int ret = 0;
 
-	if (unlikely(flags || mode))
-		return -EINVAL;
 	if (unlikely(len_diff_abs > 0xfffU))
 		return -EFAULT;
 
@@ -3561,16 +3559,6 @@ static int bpf_skb_adjust_net(struct sk_buff *skb, s32 len_diff)
 	}
 	return ret;
 }
-
-static const struct bpf_func_proto sk_skb_adjust_room_proto = {
-	.func		= sk_skb_adjust_room,
-	.gpl_only	= false,
-	.ret_type	= RET_INTEGER,
-	.arg1_type	= ARG_PTR_TO_CTX,
-	.arg2_type	= ARG_ANYTHING,
-	.arg3_type	= ARG_ANYTHING,
-	.arg4_type	= ARG_ANYTHING,
-};
 
 BPF_CALL_4(bpf_skb_adjust_room, struct sk_buff *, skb, s32, len_diff,
 	   u32, mode, u64, flags)
@@ -3727,6 +3715,23 @@ static const struct bpf_func_proto bpf_skb_change_tail_proto = {
 BPF_CALL_3(sk_skb_change_tail, struct sk_buff *, skb, u32, new_len,
 	   u64, flags)
 {
+	int ret = __bpf_skb_change_tail(skb, new_len, flags);
+	bpf_compute_data_end_sk_skb(skb);
+	return ret;
+}
+
+static const struct bpf_func_proto sk_skb_change_tail_proto = {
+	.func		= sk_skb_change_tail,
+	.gpl_only	= false,
+	.ret_type	= RET_INTEGER,
+	.arg1_type	= ARG_PTR_TO_CTX,
+	.arg2_type	= ARG_ANYTHING,
+	.arg3_type	= ARG_ANYTHING,
+};
+
+static inline int __bpf_skb_change_head(struct sk_buff *skb, u32 head_room,
+					u64 flags)
+{
 	u32 max_len = __bpf_skb_max_len(skb);
 	u32 new_len = skb->len + head_room;
 	int ret;
@@ -3749,10 +3754,18 @@ BPF_CALL_3(sk_skb_change_tail, struct sk_buff *, skb, u32, new_len,
 		__skb_push(skb, head_room);
 		memset(skb->data, 0, head_room);
 		skb_reset_mac_header(skb);
+		skb_reset_mac_len(skb);
 	}
 
-	bpf_compute_data_end(skb);
-	return 0;
+	return ret;
+}
+BPF_CALL_3(bpf_skb_change_head, struct sk_buff *, skb, u32, head_room,
+	   u64, flags)
+{
+	int ret = __bpf_skb_change_head(skb, head_room, flags);
+
+	bpf_compute_data_pointers(skb);
+	return ret;
 }
 
 static const struct bpf_func_proto bpf_skb_change_head_proto = {
@@ -6855,7 +6868,6 @@ bool bpf_helper_changes_pkt_data(void *func)
 	    func == bpf_skb_change_tail ||
 	    func == sk_skb_change_tail ||
 	    func == bpf_skb_adjust_room ||
-	    func == sk_skb_adjust_room ||
 	    func == bpf_skb_pull_data ||
 	    func == sk_skb_pull_data ||
 	    func == bpf_clone_redirect ||
@@ -7331,8 +7343,6 @@ sk_skb_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &sk_skb_change_tail_proto;
 	case BPF_FUNC_skb_change_head:
 		return &sk_skb_change_head_proto;
-	case BPF_FUNC_skb_adjust_room:
-		return &sk_skb_adjust_room_proto;
 	case BPF_FUNC_get_socket_cookie:
 		return &bpf_get_socket_cookie_proto;
 	case BPF_FUNC_get_socket_uid:

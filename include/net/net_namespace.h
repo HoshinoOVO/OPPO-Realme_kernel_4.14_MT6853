@@ -333,6 +333,7 @@ struct net *get_net_ns_by_id(struct net *net, int id);
 struct pernet_operations {
 	struct list_head list;
 	int (*init)(struct net *net);
+	void (*pre_exit)(struct net *net);
 	void (*exit)(struct net *net);
 	void (*exit_batch)(struct list_head *net_exit_list);
 	unsigned int *id;
