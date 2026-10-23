@@ -4,15 +4,6 @@ on:
   workflow_dispatch:
     inputs:
 
-      SU:
-        type: choice
-        description: "选择要使用的 Root 管理器"
-        required: true
-        default: RKSU
-        options:
-          - RKSU
-          - ReSukiSU
-
       BBR:
         type: boolean
         description: "是否启用 BBR 加速（不了解请不要启用）"
@@ -25,11 +16,6 @@ on:
         required: false
         default: false
 
-      SUSFS:
-        type: boolean
-        description: "是否加入 SUSFS"
-        required: false
-        default: false
 
 
       TG:
