@@ -3708,7 +3708,7 @@ static inline int hugetlb_handle_userfault(struct vm_area_struct *vma,
          * dropped before handling userfault.  Reacquire
          * after handling fault to make calling code simpler.
          */
-        hash = hugetlb_fault_mutex_hash(h, mapping, idx);
+        hash = hugetlb_fault_mutex_hash(h, mapping, idx, haddr);
         mutex_unlock(&hugetlb_fault_mutex_table[hash]);
         ret = handle_userfault(&vmf, reason);
         mutex_lock(&hugetlb_fault_mutex_table[hash]);
