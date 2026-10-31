@@ -63,26 +63,86 @@ Upstream:
 - [x] 修补bpf
 - [x] 自动发布到[TG频道](https://t.me/mt6853o)
 
-## 附加脚本
+## 传感器 vendor 修复(双层方案,过 Miscellaneous Check 5)
 
-### sensor_vendor_fix.sh — 传感器 vendor 一键修复(过 Miscellaneous Check 5)
+### 背景
 
-部分风控 SDK 会统计 vendor 含 `AOSP` 的传感器数量,>3 判定为模拟器/云手机。当 sensors HAL
-未提供融合传感器时,`SensorService` 会以 `AOSP` 为 vendor 注册 6 个兜底虚拟传感器
-(重力/线性加速/RV/游戏RV/地磁RV/方向),外加 2 个无条件注册的调试传感器 —— 真机极易超阈值。
+部分风控 SDK(银行/游戏等 App 的环境检测)有一条 **Miscellaneous Check(5)**:
+遍历 `SensorManager.getSensorList(TYPE_ALL)`,统计 `Sensor.getVendor()` 包含 `AOSP`
+(不分大小写)的传感器数量,**>3 即判定为模拟器/云手机**。
 
-本脚本将 `libsensorservice.so` 中的 `AOSP` 字面量**等长**改写为 `MTK!`(链接器合并字符串,
-一次替换全部生效),以 KernelSU/RKSU/BakaSU/NoMount 模块形式 **systemless** 挂载,不动 system 分区:
+真机上这些 `AOSP` vendor 从哪来?当 sensors HAL **未提供融合传感器**时,Android 框架的
+`SensorService`(`frameworks/native/services/sensorservice/`)会用 `vendor="AOSP"`
+注册兜底虚拟传感器:
+
+| 数量 | 传感器 | 注册条件 |
+|---|---|---|
+| 6 | 重力 / 线性加速 / 旋转矢量 / 游戏旋转矢量 / 地磁旋转矢量 / 方向 | HAL 未提供对应类型时兜底 |
+| 2 | Corrected Gyroscope Sensor / Gyroscope Bias (debug) | 有 加速度计+陀螺仪+磁力计 就**无条件**注册 |
+
+也就是说:磁力计齐全的真机**天生自带 2 个** AOSP vendor 传感器;再叠加 HAL 缺失
+融合传感器的 6 个兜底,计数冲到 8 → 直接超阈值。
+
+### 方案①内核侧(main 分支已内置)
+
+`drivers/misc/mediatek/sensor/2.0/sensor_vendor_sanitize.h` +
+`mtk_nanohub/mtk_nanohub.c` 与 `sensorhub/sensor_list.c` 调用点:
+所有经内核/SCP 上报的传感器 vendor,包含 `aosp`(不分大小写)一律改写为 `mtk`。
+兼容 NANOHUB / MTK_SENSORHUB 两种后端、clang/gcc、RKSU/BakaSU 构建路线。
+细节见 commit `52ba5be29`。
+
+### 方案②用户侧:sensor_vendor_fix.sh 一键脚本
+
+针对 SensorService 兜底的 8 个:把 `libsensorservice.so` 中的 `AOSP` 字面量
+**等长**改写为 `MTK!`(链接器合并字符串,一次替换全部生效),以模块形式
+**systemless** 挂载(支持 KernelSU/RKSU/BakaSU/NoMount),不动 system 分区,
+传感器功能零影响。
 
 ```sh
-su -c 'sh /sdcard/sensor_vendor_fix.sh apply'    # 打补丁+生成模块,重启生效
-su -c 'sh /sdcard/sensor_vendor_fix.sh status'   # 查看状态(dumpsys 计数)
-su -c 'sh /sdcard/sensor_vendor_fix.sh restore'  # 还原(重启后恢复原状)
+# 下载(已 root 的任意终端)
+su -c 'cd /sdcard/Download && wget -O svf.sh https://raw.githubusercontent.com/HoshinoOVO/OPPO-Realme_kernel_4.14_MT6853/main/sensor_vendor_fix.sh'
+
+# 打补丁 + 生成模块,重启生效
+su -c 'sh /sdcard/Download/svf.sh apply'
+
+# 查看状态(dumpsys 计数 + 自动判定)
+su -c 'sh /sdcard/Download/svf.sh status'
+
+# 还原(重启后恢复原状)
+su -c 'sh /sdcard/Download/svf.sh restore'
 ```
 
-- 64/32 位库自动探测,SELinux 标签自动继承,内置三重校验(残留/尺寸/差异字节数)
-- 与内核侧的传感器 vendor 消毒(commit `52ba5be29`)构成双层覆盖
-- OTA/大版本升级后:`restore` → 重启 → 重新 `apply`
+- 64/32 位库自动探测,模块内路径镜像原始路径,SELinux 标签自动继承
+- 内置三重校验(AOSP 残留=0 / 文件尺寸不变 / 差异字节数=4×出现次数),任一不过拒绝写入
+- 幂等:重复执行安全;已打过补丁的设备执行会提示"无需操作"
+
+### 验证
+
+```sh
+su -c 'dumpsys sensorservice | grep -ci aosp'      # 期望 0(≤3 即不命中检测)
+su -c 'dumpsys sensorservice | grep -i "MTK!"'     # 8 个传感器应显示新 vendor
+```
+
+### FAQ
+
+**Q: 用 NoMount 挂载后重启卡开机第二屏?**
+A: bind mount 的 so 带着 `/data/adb` 的 SELinux 标签,system_server 加载被拒导致崩溃循环。
+   脚本 v1.1 起自动继承标签并写入 `post-fs-data.sh` 兜底。老模块手动修复:
+   ```sh
+   su -c 'chcon u:object_r:system_lib_file:s0 /data/adb/modules/sensor_vendor_fix/system/lib64/libsensorservice.so'
+   ```
+
+**Q: OTA/大版本升级后要重做吗?**
+A: 要。`restore` → 重启 → 重新 `apply`(so 会随 ROM 更新)。
+
+**Q: 怎么彻底还原?**
+A: `restore` 并重启;或直接删除 `/data/adb/modules/sensor_vendor_fix` 目录。
+
+**Q: 融合传感器精度受影响吗?**
+A: 不受。改写的只是 vendor 元数据,算法原样运行。
+
+**Q: 内核侧和用户侧都做吗?**
+A: 建议都做,互为纵深。只做其一也能过检测(5),但覆盖链路不同。
 
 ***
 ## 鸣谢
