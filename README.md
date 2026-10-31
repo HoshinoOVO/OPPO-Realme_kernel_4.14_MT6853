@@ -39,6 +39,31 @@
 
 ***
 
+## Feature:
+
+Upstream:
+- [x] lxc
+- [x] docker
+- [x] kvm
+
+此项目：
+- [x] 适配最新版[RKSU](https://github.com/rsuntk/KernelSU)
+- [x] 内置[BakaSU](https://github.com/Baka-SU/BakaSU)
+- [x] 开放创意工坊
+     - [x] BBR加速
+     - [x] SUSFS-V2.2.0
+     - [x] [DroidSpaces](https://github.com/ravindu644/Droidspaces-OSS)
+     - [x] 墓碑 - [Cirno](https://cirno.shrairo.top/)
+     - [x] [NoMount](https://github.com/maxsteeel/nomount)
+     - [x] 修复几个CVE漏洞   --CVE-2026-43499 & CVE-2022-29581
+     - [ ] [BBG](https://github.com/vc-teahouse/Baseband-guard)防格机
+     - [ ] So on...
+- [x] 修补bpf
+- [x] 传感器vendor消毒 过 Miscellaneous Check 5（内核层 + [sensor_vendor_fix.sh](#sensor_vendor_fixsh) 用户层）
+- [x] 自动发布到[TG频道](https://t.me/mt6853o)
+
+***
+
 ## 刷入后教程
 
 ### 1️⃣ 确认内核生效
