@@ -63,6 +63,27 @@ Upstream:
 - [x] 修补bpf
 - [x] 自动发布到[TG频道](https://t.me/mt6853o)
 
+## 附加脚本
+
+### sensor_vendor_fix.sh — 传感器 vendor 一键修复(过 Miscellaneous Check 5)
+
+部分风控 SDK 会统计 vendor 含 `AOSP` 的传感器数量,>3 判定为模拟器/云手机。当 sensors HAL
+未提供融合传感器时,`SensorService` 会以 `AOSP` 为 vendor 注册 6 个兜底虚拟传感器
+(重力/线性加速/RV/游戏RV/地磁RV/方向),外加 2 个无条件注册的调试传感器 —— 真机极易超阈值。
+
+本脚本将 `libsensorservice.so` 中的 `AOSP` 字面量**等长**改写为 `MTK!`(链接器合并字符串,
+一次替换全部生效),以 KernelSU/RKSU/BakaSU/NoMount 模块形式 **systemless** 挂载,不动 system 分区:
+
+```sh
+su -c 'sh /sdcard/sensor_vendor_fix.sh apply'    # 打补丁+生成模块,重启生效
+su -c 'sh /sdcard/sensor_vendor_fix.sh status'   # 查看状态(dumpsys 计数)
+su -c 'sh /sdcard/sensor_vendor_fix.sh restore'  # 还原(重启后恢复原状)
+```
+
+- 64/32 位库自动探测,SELinux 标签自动继承,内置三重校验(残留/尺寸/差异字节数)
+- 与内核侧的传感器 vendor 消毒(commit `52ba5be29`)构成双层覆盖
+- OTA/大版本升级后:`restore` → 重启 → 重新 `apply`
+
 ***
 ## 鸣谢
 [RKSU](https://github.com/rsuntk/KernelSU) 一个专门为`no-GIK`内核的KernelSU分支
