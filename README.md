@@ -30,7 +30,7 @@
  - 选择Root管理器以及功能 点击`Run workflow`
  - 等待构建完成并刷入~
 
- ## 如何刷入？
+## 如何刷入？
  * 首先务必Root你的手机并升级系统至安卓12
     * 在rec刷入
       
@@ -38,6 +38,68 @@
     * 先用Magisk `root`你的手机 然后使用刷写内核工具刷入
 
       比如`Franco Kernel Manager`
+
+***
+
+## 刷入后教程（按顺序做）
+
+### 第 1 步：确认内核已生效
+
+```sh
+su -c 'cat /proc/version'
+```
+
+- 应显示 `4.14.186-by-sanba` + `clang` 版本 + **本次构建的日期**
+- 时间戳对不上 = 刷错包或没刷上，重新刷
+
+### 第 2 步：确认 Root 可用
+
+- 安装 RKSU / BakaSU 管理器并授予终端 Root：
+
+```sh
+su -c 'id'    # 应输出 uid=0(root)
+```
+
+### 第 3 步：传感器 vendor 修复（过 Miscellaneous Check 5）
+
+> 风控 SDK 会统计 vendor 含 `AOSP` 的传感器数量（>3 判定模拟器）。
+> HAL 缺融合传感器时框架会兜底注册 8 个 `AOSP` vendor 传感器，必须处理。
+
+```sh
+# ① 先看基线计数
+su -c 'dumpsys sensorservice | grep -ci aosp'
+
+# ② 下载并执行修复脚本（raw 失败会自动切 jsDelivr）
+su -c 'cd /sdcard/Download && { wget -O svf.sh https://raw.githubusercontent.com/HoshinoOVO/OPPO-Realme_kernel_4.14_MT6853/main/sensor_vendor_fix.sh || wget -O svf.sh https://cdn.jsdelivr.net/gh/HoshinoOVO/OPPO-Realme_kernel_4.14_MT6853@main/sensor_vendor_fix.sh; } && wc -c svf.sh && sh svf.sh apply'
+
+# ③ 重启，然后复验：计数应为 0
+su -c 'dumpsys sensorservice | grep -ci aosp'
+```
+
+原理与细节见下文[「传感器 vendor 修复（双层方案）」](#传感器-vendor-修复双层方案过-miscellaneous-check-5)。
+
+### 第 4 步：按构建勾选使用功能模块
+
+| 功能 | 说明 |
+|---|---|
+| SUSFS | 挂载/文件系统隐藏，配合 Root 管理器模块使用 |
+| NoMount | systemless 挂载器；检测到 bootloop 会自动进安全模式禁用模块，进系统后修复模块再重启即可 |
+| BBR | 网络拥塞控制，勾选即启用 |
+| DroidSpaces | 独立空间，按其模块说明使用 |
+
+### 第 5 步：日常维护
+
+- **OTA/大版本升级后**：重新用 Actions 构建刷入内核 + `sensor_vendor_fix.sh` 先 `restore` 再 `apply`
+- **清除数据/重刷 ROM 后**：模块在 `/data` 会被清掉，重新执行第 3 步
+- **想还原传感器修复**：`su -c 'sh /sdcard/Download/svf.sh restore'` 后重启
+
+### 常见问题
+
+- **卡开机第二屏循环** → 多为 NoMount 安全模式已自动禁用模块，可正常进系统；
+  若是 `sensor_vendor_fix` 模块引起，执行
+  `su -c 'chcon u:object_r:system_lib_file:s0 /data/adb/modules/sensor_vendor_fix/system/lib64/libsensorservice.so'` 后重启
+- **某 App 还有其他风控项报红** → 传感器修复只覆盖 Miscellaneous Check(5)，
+  root 特征/挂载/hook 等属于其他检测项，带着报错截图来群里问
 
 ***
 
