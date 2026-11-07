@@ -20,6 +20,8 @@
 支持的Root管理器：
  - RKSU
  - BakaSU
+
+> 📜 完整改动见 [CHANGELOG.md](CHANGELOG.md)
 ***
 
 ## 如何使用？
