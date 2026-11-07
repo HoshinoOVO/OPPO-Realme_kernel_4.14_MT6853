@@ -1251,18 +1251,19 @@ diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
  	}
  
  	start = vma->vm_start;
-@@ -831,6 +869,11 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
- 		mss = &mss_stack;
- 	}
+@@ -896,7 +896,12 @@
+ 		   vma_mmu_pagesize(vma) >> 10);
+ 
+ 	__show_smap(m, &mss);
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAP
 +	if (vma->vm_file && SUSFS_IS_INODE_SUS_MAP(file_inode(vma->vm_file)))
 +		return 0;
 +#endif
 +
- 	smaps_walk.private = mss;
+ 	arch_show_smap(m, vma);
+ 	show_smap_vma_flags(m, vma);
  
- #ifdef CONFIG_SHMEM
 @@ -1618,6 +1661,9 @@ static ssize_t pagemap_read(struct file *file, char __user *buf,
  	while (count && (start_vaddr < end_vaddr)) {
  		int len;
