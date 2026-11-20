@@ -946,7 +946,7 @@ diff --git a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
  {
  	struct inotify_inode_mark *inode_mark;
  	struct inode *inode;
-@@ -83,14 +83,68 @@
+@@ -83,14 +83,69 @@
  	inode_mark = container_of(mark, struct inotify_inode_mark, fsn_mark);
  	inode = igrab(mark->connector->inode);
  	if (inode) {
@@ -955,11 +955,12 @@ diff --git a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
 +			bool is_fuse = false;
 +			if (susfs_is_inode_sus_kstat(inode, &is_fuse)) {
 +				unsigned long ino = inode->i_ino;
++			u32 user_mask = mark->mask & IN_ALL_EVENTS;
 +				dev_t dev = inode->i_sb->s_dev;
 +				susfs_sus_kstat_spoof_inotify_fdinfo(&ino, &dev);
 +				seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
 +						inode_mark->wd, ino, dev,
-+						(mark->mask & IN_ALL_EVENTS));
++						user_mask);
 +				show_mark_fhandle(m, inode);
 +				seq_putc(m, '\n');
 +				iput(inode);
@@ -989,7 +990,7 @@ diff --git a/fs/notify/fdinfo.c b/fs/notify/fdinfo.c
 +				}
 +				seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
 +						inode_mark->wd, d_backing_inode(path.dentry)->i_ino, d_backing_inode(path.dentry)->i_sb->s_dev,
-+						(mark->mask & IN_ALL_EVENTS));
++						user_mask);
 +				show_mark_fhandle(m, d_backing_inode(path.dentry));
 +				seq_putc(m, '\n');
 +				path_put(&path);
