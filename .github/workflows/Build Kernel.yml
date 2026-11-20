@@ -90,7 +90,7 @@ jobs:
         cd $GITHUB_WORKSPACE/kernel_workspace
         CLONE_BRANCH="${{ github.event.inputs.Branch }}"
         echo "使用 $CLONE_BRANCH 分支"
-        git clone -b "$CLONE_BRANCH" --single-branch https://github.com/sanba0519/OPPO-Realme_kernel_4.14_MT6853.git android-kernel
+        git clone -b "$CLONE_BRANCH" --single-branch "https://github.com/${{ github.repository }}.git" android-kernel
         cd android-kernel
 
     - name: Apply patch
