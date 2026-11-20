@@ -7,24 +7,18 @@
 
 ## 最近更新
 
-### 🔧 SUSFS 升级到 v2.3.0（OPPO 4.14.186 适配）
+### 🔁 SUSFS 策略调整：遵循上游 sanba0519
 
-从 v2.2.0 升级到 **SUSFS v2.3.0**，并针对 OPPO/ColorOS 的 4.14.186 vendor 树重新适配补丁。
+SUSFS 补丁不再在本仓库内维护，回归上游模式：
 
-- **引入 v2.3.0**（`a7cb1dd9a`）
-  - 从 `JackA1ltman/NonGKI_Kernel_Build_2nd` 引入 4.14 版 SUSFS v2.3.0 补丁，落地到本仓库 `Patches/susfs_patch_to_4.14.patch`
-  - 兼容 NANOHUB / MTK_SENSORHUB 两种传感器后端
-  - workflow 改为自举：克隆**本仓库**而非硬编码上游（保证 CI 能编译到本 fork 的改动）；SUSFS 补丁直接从仓库内 `Patches/` 读取，不再依赖外部 wget
-
-- **修复 fdinfo.c 编译失败**（`05045d952`）
-  - 现象：`fs/notify/fdinfo.c:149: use of undeclared identifier 'user_mask'`
-  - 原因：OPPO 老接口没有 `inotify_mark_user_mask()`；适配时将 SUS_KSTAT/SUS_MOUNT 两处统一改为内联表达式 `(mark->mask & IN_ALL_EVENTS)`，消除多余的局部变量声明
-
-- **修复 task_mmu.c 编译失败**（`469ee5bb6`）
-  - 现象：`fs/proc/task_mmu.c:823: error: void function 'smap_gather_stats' should not return a value`
-  - 原因：ja 补丁的 SUS_MAP hunk 上下文用新版 `mss_stack`，在 OPPO 树里只能 fuzz 匹配到 `void smap_gather_stats` 内的 `smaps_walk.private = mss`，导致 `return 0;` 进 void 函数
-  - 修复：将 SUS_MAP 早退逻辑重新锚定到 **int `show_smap`** 的 `__show_smap(m, &mss)` 处，`return 0;` 才合法
-  - 验证：完整补丁在 OPPO 树上 dry-run **59/59 hunks 通过**
+- **撤回 vendored 2.3.0 适配版**（revert `469ee5bb6`、`05045d952`、`a7cb1dd9a`）
+  - 删除仓库内 `Patches/susfs_patch_to_4.14.patch`
+  - workflow 的 SUSFS 段恢复为上游原始逻辑
+- **SUSFS 补丁来源**：CI 开启 SUSFS 开关时实时从上游
+  `sanba0519/Kernel-patch@main` 获取 `susfs_patch_to_4.14.patch`
+  （当前内容为 **SUSFS v2.3.0** 含上游编译修复，dry-run 21/21 hunks 干净通过）
+- **与上游 workflow 的唯一差异**：clone URL 使用 `${{ github.repository }}`
+  （fork 自举必需，保证 CI 编译的是本 fork 的提交，与 SUSFS 无关）
 
 ---
 
@@ -59,15 +53,16 @@
 | `7aa6519e4` | 文档：刷入后教程 |
 | `cd6561b5c` | 文档：README 精简对齐上游风格 |
 | `1f00f361f` | 文档：恢复 Feature 段 + 补传感器条目 |
-| `a7cb1dd9a` | SUSFS v2.3.0 引入 + workflow 自举 |
-| `05045d952` | 修复 fdinfo.c `user_mask` 未声明 |
-| `469ee5bb6` | 修复 task_mmu.c SUS_MAP 进 void 函数 |
+| `4b33994a7` | Revert: 撤回 task_mmu SUS_MAP 修复 |
+| `cc14b0b5d` | Revert: 撤回 fdinfo user_mask 修复 |
+| `502028266` | Revert: 撤回 SUSFS v2.3.0 vendored 补丁，回归上游 wget 模式 |
+| `4b5932a1a` | fix(ci): revert 后保留 fork clone-source 修复 |
 
 ---
 
 ## 当前特性
 
-- SUSFS **v2.3.0**（非 GKI，OPPO 4.14.186 适配）
+- SUSFS **v2.3.0**（遵循上游 `sanba0519/Kernel-patch`，构建时实时获取）
 - 传感器 vendor 双层消毒（内核 + 用户态模块）
 - 内核消毒 commit `52ba5be29` 已随本 fork 的 CI 构建
 - RKSU / BakaSU 双路线，NoMount / BBR / SUSFS 等创意工坊功能

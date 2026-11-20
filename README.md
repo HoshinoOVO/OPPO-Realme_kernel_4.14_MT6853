@@ -57,7 +57,7 @@ Upstream:
 - [x] 内置[BakaSU](https://github.com/Baka-SU/BakaSU)
 - [x] 开放创意工坊
      - [x] BBR加速
-     - [x] SUSFS-V2.2.0
+     - [x] SUSFS-V2.3.0
      - [x] [DroidSpaces](https://github.com/ravindu644/Droidspaces-OSS)
      - [x] 墓碑 - [Cirno](https://cirno.shrairo.top/)
      - [x] [NoMount](https://github.com/maxsteeel/nomount)
